@@ -1,0 +1,59 @@
+name: スクレイピング → スプレッドシート同期（平日9時）
+
+on:
+  schedule:
+    # 平日（月〜金）9:00 JST（UTC 0:00）
+    - cron: "0 0 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      use_dummy:
+        description: "ダミーデータを使用する（true/false）"
+        required: false
+        default: "false"
+
+jobs:
+  scrape-and-sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v4
+
+      - name: Python をセットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: 依存パッケージをインストール
+        run: pip install -r requirements.txt
+
+      - name: Playwright ブラウザをインストール
+        run: playwright install chromium --with-deps
+
+      - name: スクレイピング → スプレッドシート同期
+        env:
+          SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
+          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+        run: |
+          echo "$GOOGLE_CREDENTIALS_JSON" > credentials.json
+          USE_DUMMY="${{ github.event.inputs.use_dummy || 'false' }}"
+          if [ "$USE_DUMMY" = "true" ]; then
+            python main.py --dummy --spreadsheet-id "$SPREADSHEET_ID"
+          else
+            python main.py --spreadsheet-id "$SPREADSHEET_ID"
+          fi
+
+      - name: 同期結果を Slack へ通知
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          DATE=$(TZ=Asia/Tokyo date +"%Y/%m/%d")
+          STATUS="${{ job.status }}"
+          if [ "$STATUS" = "success" ]; then
+            MSG=":white_check_mark: *${DATE} スクレイピング同期完了*\nスプレッドシートが最新データに更新されました。"
+          else
+            MSG=":x: *${DATE} スクレイピング同期エラー*\nGitHub Actions のログを確認してください。"
+          fi
+          python scripts/notify_slack.py --message "$MSG"

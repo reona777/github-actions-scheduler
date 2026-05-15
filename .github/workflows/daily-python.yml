@@ -1,0 +1,48 @@
+name: 日次 Python スクリプト実行
+
+on:
+  schedule:
+    # 毎日 9:00 JST（UTC 0:00）に実行
+    - cron: "0 0 * * *"
+  workflow_dispatch:  # 手動実行も可能
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v4
+
+      - name: Python をセットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: 依存パッケージをインストール
+        run: pip install -r requirements.txt
+
+      - name: Playwright ブラウザをインストール
+        run: playwright install chromium --with-deps
+
+      - name: スクレイピング → スプレッドシート同期を実行
+        env:
+          SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
+          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+        run: |
+          echo "$GOOGLE_CREDENTIALS_JSON" > credentials.json
+          python main.py --spreadsheet-id "$SPREADSHEET_ID"
+
+      - name: 完了通知を Slack へ送信
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          STATUS="${{ job.status }}"
+          if [ "$STATUS" = "success" ]; then
+            MSG=":white_check_mark: 日次スクレイピング同期が完了しました。"
+          else
+            MSG=":x: 日次スクレイピング同期でエラーが発生しました。ログを確認してください。"
+          fi
+          python scripts/notify_slack.py --message "$MSG"

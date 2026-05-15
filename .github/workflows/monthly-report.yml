@@ -1,0 +1,49 @@
+name: 月次レポート生成・送信
+
+on:
+  schedule:
+    # 毎月1日 10:00 JST（UTC 1:00）に実行
+    - cron: "0 1 1 * *"
+  workflow_dispatch:
+
+jobs:
+  monthly-report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v4
+
+      - name: Python をセットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: 依存パッケージをインストール
+        run: pip install -r requirements.txt
+
+      - name: 月次集計レポートを生成
+        env:
+          SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
+          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+        run: |
+          echo "$GOOGLE_CREDENTIALS_JSON" > credentials.json
+          python scripts/generate_monthly_report.py \
+            --spreadsheet-id "$SPREADSHEET_ID"
+
+      - name: レポートを Slack へ送信
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          MONTH=$(date -d "last month" +"%Y年%-m月" 2>/dev/null || date -v-1m +"%Y年%-m月")
+          python scripts/notify_slack.py \
+            --message ":bar_chart: ${MONTH}の月次レポートをスプレッドシートに出力しました。"
+
+      - name: エラー時の緊急通知
+        if: failure()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          python scripts/notify_slack.py \
+            --message ":rotating_light: 月次レポート生成でエラーが発生しました。至急確認してください。"

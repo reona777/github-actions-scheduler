@@ -1,0 +1,71 @@
+name: Slack 通知サンプル（手動・イベント連動）
+
+on:
+  # プッシュ時に通知（main ブランチのみ）
+  push:
+    branches:
+      - main
+  # Pull Request のオープン・マージ時に通知
+  pull_request:
+    types: [opened, closed]
+  # 手動実行
+  workflow_dispatch:
+    inputs:
+      message:
+        description: "Slack に送信するメッセージ"
+        required: true
+        default: "手動テスト通知です"
+
+jobs:
+  notify-push:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: プッシュ通知を Slack へ送信
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          python scripts/notify_slack.py \
+            --message ":rocket: *${{ github.repository }}* に新しいコードがプッシュされました。\nブランチ: \`${{ github.ref_name }}\`\nコミット: \`${{ github.sha }}\`"
+
+  notify-pr:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: PR 通知を Slack へ送信
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          ACTION="${{ github.event.action }}"
+          if [ "$ACTION" = "opened" ]; then
+            ICON=":open_book:"
+            LABEL="PRがオープンされました"
+          else
+            ICON=":white_check_mark:"
+            LABEL="PRがマージされました"
+          fi
+          python scripts/notify_slack.py \
+            --message "${ICON} *${LABEL}*\n${{ github.event.pull_request.title }}\n${{ github.event.pull_request.html_url }}"
+
+  notify-manual:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 手動メッセージを Slack へ送信
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          python scripts/notify_slack.py \
+            --message "${{ github.event.inputs.message }}"
