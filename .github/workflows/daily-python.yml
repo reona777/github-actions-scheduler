@@ -1,9 +1,9 @@
 name: 日次 Python スクリプト実行
 
 on:
-  schedule:
-    # 毎日 9:00 JST（UTC 0:00）に実行
-    - cron: "0 0 * * *"
+  # schedule:
+  #   # 毎日 9:00 JST（UTC 0:00）に実行（デモ用リポジトリのため無効化）
+  #   - cron: "0 0 * * *"
   workflow_dispatch:  # 手動実行も可能
 
 jobs:
