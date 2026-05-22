@@ -8,7 +8,7 @@ on:
 
 jobs:
   run-script:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - name: リポジトリをチェックアウト
@@ -24,9 +24,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Playwright ブラウザをインストール
-        run: |
-          sudo apt-get install -y libasound2t64
-          playwright install chromium --with-deps
+        run: playwright install chromium --with-deps
 
       - name: スクレイピング → スプレッドシート同期を実行
         env:
