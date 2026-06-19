@@ -16,6 +16,12 @@
 
 全ワークフローに `workflow_dispatch` が設定されており、スケジュール実行と手動実行の両方に対応しています。
 
+## 背景・導入経緯
+
+業務自動化で Python スクリプトや GAS を定期実行したい場面が繰り返し発生していた。GitHub Actions は無料枠で使えてコードと同じリポジトリで管理できる点が扱いやすいが、cron の UTC 変換・土日スキップ・dry_run 設計など、毎回同じ設定を一から書き直すのが手間だった。
+
+よく使うスケジューラーパターンをテンプレートとして一箇所にまとめることで、新しい自動化タスクの立ち上げコストを下げることを目的に整備した。
+
 ## 技術スタック
 
 ![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-2088FF?style=flat&logo=github-actions&logoColor=white)
